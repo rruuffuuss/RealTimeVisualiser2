@@ -24,7 +24,6 @@ use std::sync::mpsc::Sender;
 
 struct UserData {
     format: spa::param::audio::AudioInfoRaw,
-    cursor_move: bool,
     capture_buffer: Vec<f32>,
     //pw_quantum: usize,
     fresh_tx: Sender<VecDeque<f32>>,
@@ -82,12 +81,12 @@ fn capture_samples(stream: &Stream, user_data: &mut UserData) {
 
             let data = &mut datas[0];
             let n_channels = user_data.format.channels() as usize;
-            let n_samples = data.chunk().size() as usize;
+            let n_samples = data.chunk().size() as usize / mem::size_of::<f32>();
 
             // extend the transform buffer with the bytes from each channel cnoverted to f32 and averaged
             if let Some(samples) = data.data() {
                 user_data.capture_buffer.extend(
-                    samples[..(n_samples * mem::size_of::<f32>())]
+                    samples[..(n_samples)]
                         .chunks_exact(mem::size_of::<f32>() * n_channels)
                         .map(|samples| -> f32 {
                             samples
@@ -104,7 +103,7 @@ fn capture_samples(stream: &Stream, user_data: &mut UserData) {
                 if user_data.capture_buffer.len() > user_data.samples_per_frame
                     && let Ok(mut buffer) = user_data.completed_rx.try_recv()
                 {
-                    buffer.drain(..(n_samples / n_channels));
+                    buffer.drain(..(user_data.capture_buffer.len()));
                     buffer.extend(user_data.capture_buffer.iter());
 
                     user_data.capture_buffer.clear();
@@ -200,7 +199,6 @@ pub fn run(
 
     let data = UserData {
         format: Default::default(),
-        cursor_move: false,
         capture_buffer: Vec::new(),
         //pw_quantum: 0,
         fresh_tx,
