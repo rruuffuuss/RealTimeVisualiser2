@@ -12,9 +12,9 @@ impl Normaliser {
     pub fn normalise(&mut self, bars: &mut Vec<f32>) {
         let mut max: f32 = 0.0;
 
-        bars.iter_mut().for_each(|b| {
+        bars.iter_mut().enumerate().for_each(|(i, b)| {
+            *b *= i / self.max_threshold;
             max = max.max(*b);
-            *b /= self.max_threshold
         });
 
         if max > self.max_threshold {

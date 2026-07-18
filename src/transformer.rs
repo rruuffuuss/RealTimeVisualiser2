@@ -56,11 +56,10 @@ impl Transformer {
         // copy the real part of the transform into the output
         // only half is copied since fourier transform of real only input is a mirrored
         // could potentially add other bar merging options like max or a weighted average
+        // no point dividing for average since bars are normalised anyway
         self.input_buffer[..self.input_samples / 2]
             .chunks_exact(self.bins_per_bar)
-            .map(|bins| {
-                bins.iter().map(|bin| bin.norm_sqr()).sum::<f32>() / self.bins_per_bar as f32
-            })
+            .map(|bins| bins.iter().map(|bin| bin.norm_sqr()).sum::<f32>())
             .collect()
     }
 }
