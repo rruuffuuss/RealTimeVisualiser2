@@ -1,4 +1,4 @@
-struct Normaliser {
+pub struct Normaliser {
     max_threshold: f32,
 }
 

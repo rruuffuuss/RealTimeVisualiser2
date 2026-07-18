@@ -9,7 +9,7 @@ use std::io::{self, Write};
 
 const BLOCK: [char; 9] = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
-struct Display {
+pub struct Display {
     width: u16,
     height: u16,
     _string_buffer: String,
@@ -48,7 +48,7 @@ impl Display {
         }
     }
 
-    pub fn render_frame(&mut self, input: Vec<f32>) -> &String {
+    pub fn render_frame(&mut self, input: &[f32]) -> &String {
         if (input.len() != self.heights.len()) {
             panic!("graph width cannot currently change at runtime")
         };
@@ -97,7 +97,7 @@ impl Display {
         stdout.flush()
     }
 
-    pub fn display(&mut self, input: Vec<f32>) {
+    pub fn display(&mut self, input: &[f32]) {
         Display::draw_frame(self.render_frame(input))
             .expect("error drawing the frame, you string was likely malformed");
     }
@@ -111,7 +111,7 @@ mod tests {
     fn test_heights() {
         let mut d = Display::new(5, 10);
 
-        let frame = d.render_frame(vec![0.99_f32, 0.0, 0.7, 0.4, 0.9]);
+        let frame = d.render_frame(&vec![0.99_f32, 0.0, 0.7, 0.4, 0.9]);
 
         let bars = String::from(concat!(
             "\x1b[H",
@@ -134,7 +134,7 @@ mod tests {
     fn test_increments_and_heights() {
         let mut d = Display::new(5, 10);
 
-        let frame = d.render_frame(vec![0.778_f32, 0.0334, 0.7, 0.412, 0.978]);
+        let frame = d.render_frame(&vec![0.778_f32, 0.0334, 0.7, 0.412, 0.978]);
 
         let bars = String::from(concat!(
             "\x1b[H",

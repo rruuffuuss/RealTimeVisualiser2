@@ -14,7 +14,7 @@ impl Transformer {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(input_samples);
         let mut input_buffer = vec![Complex::new(0.0, 0.0); input_samples];
-        let bins_per_bar = (input_samples / 2) / output_bars;
+        let bins_per_bar = (input_samples) / (2 * (output_bars));
 
         Self {
             input_samples,
@@ -26,11 +26,11 @@ impl Transformer {
     }
 
     /// same as transform but supports split slices as output from a VecDeque
-    pub fn transform_split(&mut self, input1: &[f32], input2: &[f32]) -> Vec<f32> {
+    pub fn transform_split(&mut self, input: (&[f32], &[f32])) -> Vec<f32> {
         //copy the input into the real part of complex numbers in the input buffer
         self.input_buffer
             .iter_mut()
-            .zip(input1.iter().chain(input2.iter()))
+            .zip(input.0.iter().chain(input.1.iter()))
             .for_each(|(b, i)| *b = Complex::new(*i, 0.0));
 
         self._transform_inner()
@@ -47,13 +47,17 @@ impl Transformer {
     }
 
     pub fn _transform_inner(&mut self) -> Vec<f32> {
+        if self.input_buffer.len() != self.input_samples {
+            panic!("input size is unexpected")
+        };
+
         self.fft.process(&mut self.input_buffer);
 
         // copy the real part of the transform into the output
         // only half is copied since fourier transform of real only input is a mirrored
         // could potentially add other bar merging options like max or a weighted average
         self.input_buffer[..self.input_samples / 2]
-            .chunks(self.bins_per_bar)
+            .chunks_exact(self.bins_per_bar)
             .map(|bins| {
                 bins.iter().map(|bin| bin.norm_sqr()).sum::<f32>() / self.bins_per_bar as f32
             })
@@ -102,7 +106,7 @@ mod tests {
             (input1.len() + input2.len()) / 2,
         );
 
-        let result = t.transform_split(&input1, &input2);
+        let result = t.transform_split((&input1, &input2));
 
         print!("{:?}", result);
 
