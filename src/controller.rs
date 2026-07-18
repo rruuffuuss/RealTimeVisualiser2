@@ -80,14 +80,19 @@ impl Controller {
 
         stale_tx.send(transform_buffer).unwrap();
 
-        thread::spawn(move || captor::run(fresh_tx, stale_rx));
+        let framerate = self.target_framerate;
+
+        thread::spawn(move || captor::run(framerate, fresh_tx, stale_rx));
 
         for recieved in fresh_rx {
+            // recieve fresh audio samples & capture thread builds capture buffer whilst we FFT
             let mut spectrum_data = transformer.transform_split(recieved.as_slices());
+
+            // we return empty buffer which can be filled whilst we normalise & draw
+            stale_tx.send(recieved).unwrap();
+
             normaliser.normalise(&mut spectrum_data);
             display.display(&spectrum_data[..self.bars]);
-
-            stale_tx.send(recieved).unwrap();
         }
     }
 }

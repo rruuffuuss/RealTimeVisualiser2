@@ -29,10 +29,12 @@ struct UserData {
     //pw_quantum: usize,
     fresh_tx: Sender<VecDeque<f32>>,
     completed_rx: Receiver<VecDeque<f32>>,
+
+    samples_per_frame: usize,
 }
 
 /// This is basically useless for current implementation. Will become useful in future. Good to know its working.
-fn setup_buffer(user_data: &mut UserData, pw_buffer: *mut pw_buffer) {
+fn setup_buffer(user_data: &mut UserData, pw_buffer: *mut pw_buffer, target_framerate: &u16) {
     // PipeWire supplies a valid pw_buffer
     let max_size = unsafe {
         let Some(pw_buffer) = pw_buffer.as_ref() else {
@@ -60,8 +62,13 @@ fn setup_buffer(user_data: &mut UserData, pw_buffer: *mut pw_buffer) {
             .unwrap_or(0)
     };
 
+    user_data.samples_per_frame = (user_data.format.rate() / *target_framerate as u32) as usize;
+
     //user_data.pw_quantum = max_size;
-    user_data.capture_buffer.reserve(max_size);
+    // capture buffer will never be more than max_size longer than samples per frame
+    user_data
+        .capture_buffer
+        .reserve(user_data.samples_per_frame as usize + max_size);
 }
 
 fn capture_samples(stream: &Stream, user_data: &mut UserData) {
@@ -74,26 +81,33 @@ fn capture_samples(stream: &Stream, user_data: &mut UserData) {
             }
 
             let data = &mut datas[0];
-            let n_channels = user_data.format.channels();
-            let n_samples = data.chunk().size() / (mem::size_of::<f32>() as u32);
+            let n_channels = user_data.format.channels() as usize;
+            let n_samples = data.chunk().size() as usize;
 
             // extend the transform buffer with the bytes from each channel cnoverted to f32 and averaged
             if let Some(samples) = data.data() {
-                user_data.capture_buffer = samples
-                    .chunks_exact(mem::size_of::<f32>() * n_channels as usize)
-                    .map(|samples| -> f32 {
-                        samples
-                            .chunks_exact(mem::size_of::<f32>())
-                            .map(|bytes| -> f32 { f32::from_le_bytes(bytes.try_into().unwrap()) })
-                            .sum::<f32>()
-                            / n_channels as f32
-                    })
-                    .collect();
+                user_data.capture_buffer.extend(
+                    samples[..(n_samples * mem::size_of::<f32>())]
+                        .chunks_exact(mem::size_of::<f32>() * n_channels)
+                        .map(|samples| -> f32 {
+                            samples
+                                .chunks_exact(mem::size_of::<f32>())
+                                .map(|bytes| -> f32 {
+                                    f32::from_le_bytes(bytes.try_into().unwrap())
+                                })
+                                .sum::<f32>()
+                                / n_channels as f32
+                        }),
+                );
 
                 // the main thread should have finished transforming and displaying the data & return the freed slice
-                if let Ok(mut buffer) = user_data.completed_rx.try_recv() {
-                    buffer.drain(..(n_samples / n_channels) as usize);
+                if user_data.capture_buffer.len() > user_data.samples_per_frame
+                    && let Ok(mut buffer) = user_data.completed_rx.try_recv()
+                {
+                    buffer.drain(..(n_samples / n_channels));
                     buffer.extend(user_data.capture_buffer.iter());
+
+                    user_data.capture_buffer.clear();
 
                     user_data.fresh_tx.send(buffer).unwrap();
                 }
@@ -191,11 +205,14 @@ pub fn run(
         //pw_quantum: 0,
         fresh_tx,
         completed_rx,
+        samples_per_frame: 0,
     };
 
     let _listener = stream
         .add_local_listener_with_user_data(data)
-        .add_buffer(|_, user_data, pw_buffer| setup_buffer(user_data, pw_buffer))
+        .add_buffer(move |_, user_data, pw_buffer| {
+            setup_buffer(user_data, pw_buffer, &target_framerate)
+        })
         .param_changed(|_, user_data, id, param| param_changed(user_data, id, param))
         .process(move |stream, user_data| capture_samples(stream, user_data))
         .register()?;

@@ -27,14 +27,13 @@ struct Args {
     max_frequency: usize,
 
     ///target framerate
-    #[arg(short, long, default_value_t = 60)]
+    #[arg(short, long, default_value_t = 20)]
     framerate: u16,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    // Crossterm returns (columns, rows) as (u16, u16).
     let (terminal_width, terminal_height) = terminal::size()?;
 
     let controller = Controller::new(
