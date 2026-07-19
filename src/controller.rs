@@ -1,10 +1,13 @@
-use super::{captor, display::Display, normaliser::Normaliser, transformer::Transformer};
+use super::{
+    captor, display::Display, normaliser::Normaliser, settings::MergerSettings,
+    transform::transformer::Transformer,
+};
 
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
 use std::collections::VecDeque;
-use std::thread::{self, Thread};
+use std::thread::{self};
 use std::usize;
 
 pub enum Mode {
@@ -23,6 +26,7 @@ pub struct Controller {
     /// a long window width and a high framerate will mean the frequency spectrum calculated for a frame uses some samples included in previous frames
     ///number of samples to analyse, must be power of 2
     sample_window: usize,
+    sample_rate: u32,
     ///frequency of analysis & display update events in Hz
     ///4does nothing currently
     target_framerate: u16,
@@ -34,6 +38,7 @@ pub struct Controller {
 
     min_freq: usize,
     max_freq: usize,
+    merger: MergerSettings,
 
     ///number of output graphs
     ///display_grid: (u8, u8),
@@ -48,19 +53,23 @@ impl Controller {
         display_height: u16,
         display_width: u16,
         sample_window: usize,
+        sample_rate: u32,
         target_framerate: u16,
         min_freq: usize,
         max_freq: usize,
+        merger: MergerSettings,
         mode: Mode,
     ) -> Self {
         Self {
             display_height,
             display_width,
             sample_window,
+            sample_rate,
             target_framerate,
             bars: display_width as usize,
             min_freq,
             max_freq,
+            merger,
             mode,
         }
     }
@@ -71,8 +80,11 @@ impl Controller {
         let (stale_tx, stale_rx): (Sender<VecDeque<f32>>, Receiver<VecDeque<f32>>) =
             mpsc::channel();
 
-        let mut transformer =
-            Transformer::new(self.sample_window as usize, self.display_width as usize);
+        let mut transformer = Transformer::new(
+            self.sample_window,
+            self.merger
+                .build(self.sample_window, self.bars, self.sample_rate),
+        );
         let mut normaliser = Normaliser::new(1.0_f32);
         let mut display = Display::new(self.display_width as u16, self.display_height as u16);
 
