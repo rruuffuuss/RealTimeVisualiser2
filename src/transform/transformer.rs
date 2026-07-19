@@ -1,25 +1,24 @@
+use crate::transform::merger::Merger;
+
 use rustfft::{Fft, FftPlanner, num_complex::Complex};
 use std::sync::Arc;
 
 pub struct Transformer {
     input_samples: usize,
-    output_bars: usize,
-    bins_per_bar: usize,
+    merger: Box<dyn Merger>,
     fft: Arc<dyn Fft<f32>>,
     input_buffer: Vec<Complex<f32>>,
 }
 
 impl Transformer {
-    pub fn new(input_samples: usize, output_bars: usize) -> Self {
+    pub fn new(input_samples: usize, merger: Box<dyn Merger>) -> Self {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(input_samples);
-        let mut input_buffer = vec![Complex::new(0.0, 0.0); input_samples];
-        let bins_per_bar = (input_samples) / (2 * (output_bars));
+        let input_buffer = vec![Complex::new(0.0, 0.0); input_samples];
 
         Self {
             input_samples,
-            output_bars,
-            bins_per_bar,
+            merger,
             fft,
             input_buffer,
         }
@@ -53,20 +52,15 @@ impl Transformer {
 
         self.fft.process(&mut self.input_buffer);
 
-        // copy the real part of the transform into the output
-        // only half is copied since fourier transform of real only input is a mirrored
-        // could potentially add other bar merging options like max or a weighted average
-        // no point dividing for average since bars are normalised anyway
-        self.input_buffer[..self.input_samples / 2]
-            .chunks_exact(self.bins_per_bar)
-            .map(|bins| bins.iter().map(|bin| bin.norm_sqr()).sum::<f32>())
-            .collect()
+        self.merger.merge(&self.input_buffer)
     }
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use crate::transform::merger::LinearMerger;
 
     #[test]
     fn test_single_frequency_7_hz() {
@@ -75,7 +69,10 @@ mod tests {
             0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0,
         ];
 
-        let mut t = Transformer::new(input.len(), input.len() / 2);
+        let mut t = Transformer::new(
+            input.len(),
+            Box::new(LinearMerger::new(input.len(), input.len() / 2)),
+        );
 
         let result = t.transform(&input);
 
@@ -102,7 +99,10 @@ mod tests {
 
         let mut t = Transformer::new(
             input1.len() + input2.len(),
-            (input1.len() + input2.len()) / 2,
+            Box::new(LinearMerger::new(
+                (input1.len() + input2.len()),
+                (input1.len() + input2.len()) / 2,
+            )),
         );
 
         let result = t.transform_split((&input1, &input2));
