@@ -81,12 +81,12 @@ fn capture_samples(stream: &Stream, user_data: &mut UserData) {
 
             let data = &mut datas[0];
             let n_channels = user_data.format.channels() as usize;
-            let n_samples = data.chunk().size() as usize / mem::size_of::<f32>();
+            let n_sample_bytes = data.chunk().size() as usize;
 
             // extend the transform buffer with the bytes from each channel cnoverted to f32 and averaged
             if let Some(samples) = data.data() {
                 user_data.capture_buffer.extend(
-                    samples[..(n_samples)]
+                    samples[..(n_sample_bytes)]
                         .chunks_exact(mem::size_of::<f32>() * n_channels)
                         .map(|samples| -> f32 {
                             samples
