@@ -2,9 +2,11 @@ mod captor;
 mod controller;
 mod display;
 mod normaliser;
-mod transformer;
+mod settings;
+mod transform;
 
 use std::error::Error;
+use std::path::PathBuf;
 
 use clap::Parser;
 use crossterm::terminal;
@@ -14,35 +16,26 @@ use crate::controller::Controller;
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    ///number of samples to analyse per iteration
-    #[arg(short, long, default_value_t = 8192)]
-    sample_window: usize,
-
-    ///minimum frequency to display
-    #[arg(long = "min", default_value_t = 4096)]
-    min_frequency: usize,
-
-    ///maximum frequency to display
-    #[arg(long = "max", default_value_t = 1)]
-    max_frequency: usize,
-
-    ///target framerate
-    #[arg(short, long, default_value_t = 20)]
-    framerate: u16,
+    /// path to the YAML configuration file
+    #[arg(short, long, default_value = "config.yaml")]
+    config: PathBuf,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
+    let settings = settings::Settings::load(&args.config)?;
 
     let (terminal_width, terminal_height) = terminal::size()?;
 
     let controller = Controller::new(
         terminal_height,
         terminal_width,
-        args.sample_window,
-        args.framerate,
-        args.min_frequency,
-        args.max_frequency,
+        settings.sample_window,
+        settings.sample_rate,
+        settings.framerate,
+        settings.min_frequency,
+        settings.max_frequency,
+        settings.merger,
         controller::Mode::Monolithic,
     );
 

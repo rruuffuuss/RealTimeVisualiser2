@@ -1,0 +1,17 @@
+# FFT and display settings
+sample_window: 16384
+sample_rate: 48000
+min_frequency: 1
+max_frequency: 4096
+framerate: 30
+
+# Linear merging needs no additional settings.
+# merger:
+#  type: linear
+
+# Exponential merging can be selected instead:
+merger:
+  type: exponential
+  tuning_frequency: 440.0
+  bars_per_octave: 12
+  starting_note_offset: -36
