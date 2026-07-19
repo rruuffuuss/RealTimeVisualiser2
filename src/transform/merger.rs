@@ -215,7 +215,12 @@ mod tests {
 
     #[test]
     fn exponential_merger_configuration_and_merge() {
-        let merger = ExponentialMerger::new(vec![1, 2, 3], 6, 3);
+        let merger = ExponentialMerger {
+            bins_per_bar: vec![1, 2, 3],
+            output_bars: 3,
+            start_bin: 0,
+            end_bin: 6,
+        };
 
         let frequency_bins = vec![
             Complex::new(3.0, 4.0),
@@ -226,29 +231,24 @@ mod tests {
             Complex::new(-2.0, -1.0),
         ];
 
-        assert_eq!(merger.merge(&frequency_bins), vec![25.0, 9.0, 14.5]);
+        assert_eq!(merger.merge(&frequency_bins), vec![25.0, 4.5, 4.8333335]);
     }
 
     #[test]
     fn exponential_merger_builder_configuration_merge() {
-        let merger = ExponentialMerger::new_custom_function(64, 4, 64, 0.25, 1, 0);
+        let merger = ExponentialMerger::new_custom_function(64, 4, 64, 2.0, 1, 0);
 
-        assert_eq!(merger.bins_per_bar, vec![0, 2, 3, 4]);
-        assert_eq!(merger.useful_bins, 32);
+        assert_eq!(merger.bins_per_bar, vec![1, 1, 3, 6]);
         assert_eq!(merger.output_bars, 4);
+        assert_eq!(merger.start_bin, 0);
+        assert_eq!(merger.end_bin, 32);
 
-        let frequency_bins = vec![
-            Complex::new(1.0, 0.0),
-            Complex::new(0.0, 2.0),
-            Complex::new(3.0, 0.0),
-            Complex::new(0.0, 4.0),
-            Complex::new(1.0, 2.0),
-            Complex::new(2.0, 2.0),
-            Complex::new(0.0, 3.0),
-            Complex::new(-1.0, 0.0),
-            Complex::new(1.0, 1.0),
-        ];
+        let mut frequency_bins = vec![Complex::new(0.0, 0.0); 64];
+        frequency_bins[0] = Complex::new(1.0, 0.0);
+        frequency_bins[1] = Complex::new(2.0, 0.0);
+        frequency_bins[2..5].fill(Complex::new(3.0, 0.0));
+        frequency_bins[5..11].fill(Complex::new(4.0, 0.0));
 
-        assert_eq!(merger.merge(&frequency_bins), vec![0.0, 5.0, 30.0, 20.0]);
+        assert_eq!(merger.merge(&frequency_bins), vec![1.0, 4.0, 9.0, 16.0]);
     }
 }
