@@ -13,8 +13,9 @@ impl Normaliser {
         let mut max: f32 = 0.0;
 
         bars.iter_mut().enumerate().for_each(|(i, b)| {
-            *b *= i / self.max_threshold;
+            *b *= i as f32;
             max = max.max(*b);
+            *b /= self.max_threshold;
         });
 
         if max > self.max_threshold {
@@ -54,7 +55,7 @@ mod tests {
     fn test_normalisation_normalises_values() {
         normalisation_test(
             &mut vec![0.0_f32, 5.0, 10.0, 25.0, 49.0],
-            &vec![0.0_f32, 0.1, 0.2, 0.5, 0.98],
+            &vec![0.0_f32, 0.1, 0.4, 1.5, 3.92],
             Some(50.0),
             None,
         );
@@ -64,14 +65,14 @@ mod tests {
     fn test_normalisation_adjusts_max() {
         let n = normalisation_test(
             &mut vec![0.0_f32, 5.0, 10.0, 25.0, 49.0, 100.0],
-            &vec![0.0_f32, 0.1, 0.2, 0.5, 0.98, 2.0],
+            &vec![0.0_f32, 0.1, 0.4, 1.5, 3.92, 10.0],
             Some(50.0),
             None,
         );
 
         normalisation_test(
             &mut vec![0.0_f32, 12.0, 36.0, 60.0, 117.6],
-            &vec![0.0_f32, 0.1, 0.3, 0.5, 0.98],
+            &vec![0.0_f32, 0.02, 0.12, 0.3, 0.784],
             None,
             Some(n),
         );
